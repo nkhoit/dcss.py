@@ -1,10 +1,22 @@
 import crawlConnection as cc
 
-def getRemoteConnection(username, password):
-	result = cc.RemoteCC(username, password)
-	if(result.connect):
-		result.login()
-	else:
-		print("Failed to connect to cao. Are you sure the server is up?")
-		result = None
-	return result
+class Client:
+	def __init__(self, crawlConnection):
+		self.conn = crawlConnection
+		self.buffer = ""
+		if(self.conn and not self.conn.validConnection):
+			if(self.conn.connect()):
+				self.conn.crawlLogin()
+			else:
+				raise StandardError("Could not connect provided crawlConnection")
+	
+	def sendCommand(self, command, addNewLine=False):
+		self.buffer = self.conn.sendCommand(command, addNewLine)
+		return self.buffer
+
+
+def test():
+	client = Client(cc.RemoteCC("username", "password"))
+	print(client.buffer)
+	while True:
+		print(client.sendCommand(input()))
