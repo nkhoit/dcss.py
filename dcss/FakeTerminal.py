@@ -130,9 +130,9 @@ class FakeTerminal():
                 yield string[i]
 
     def input_string(self, string):
-        for val in self.getNextSequence(string):
+        for val in self.get_next_sequence(string):
             if isinstance(val, EscapeSequence):
-                self.applySequence(val)
+                self.apply_sequence(val)
             else:
                 self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
                         = self.Character(value=val, color=self.currentColor)
@@ -199,42 +199,42 @@ class FakeTerminal():
 
     def apply_sequence(self, sequence):
         if sequence.sequenceType == SequenceType.CURSOR_UP:
-            self.moveCursor(0, -sequence.getData(0))
+            self.move_cursor(0, -sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.CURSOR_DOWN:
-            self.moveCursor(0, sequence.getData(0))
+            self.move_cursor(0, sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.CURSOR_FORWARD:
-            self.moveCursor(sequence.getData(0), 0)
+            self.move_cursor(sequence.get_data(0), 0)
         elif sequence.sequenceType == SequenceType.CURSOR_BACK:
-            self.moveCursor(-sequence.getData(0), 0)
+            self.move_cursor(-sequence.get_data(0), 0)
         elif sequence.sequenceType == SequenceType.CURSOR_NEXT_LINE:
-            self.moveCursor(-self.cursorPosition.x, sequence.getData(0))
+            self.move_cursor(-self.cursorPosition.x, sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.CURSOR_PREVIOUS_LINE:
-            self.moveCursor(-self.cursorPosition.x, -sequence.getData(0))
+            self.move_cursor(-self.cursorPosition.x, -sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.CURSOR_HORIZONTAL_ABSOLUTE:
             self.cursorPosition.x = max(
-                    0, min(self.width, sequence.getData(0)))
+                    0, min(self.width, sequence.get_data(0)))
         elif sequence.sequenceType == SequenceType.CURSOR_POSITION \
                 or sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION:
             self.cursorPosition.x = max(
-                    0, min(self.width, sequence.getData(0)))
+                    0, min(self.width, sequence.get_data(0)))
             self.cursorPosition.y = max(
-                    0, min(self.height, sequence.getData(1)))
+                    0, min(self.height, sequence.get_data(1)))
         elif sequence.sequenceType == SequenceType.ERASE_IN_DISPLAY:
-            if sequence.getData(0) == 2:
-                self.clearTerminal()
+            if sequence.get_data(0) == 2:
+                self.clear_terminal()
             else:
                 raise NotImplementedError("currenly only supports erasing full display")
         elif sequence.sequenceType == SequenceType.ERASE_IN_LINE:
-            if sequence.getData(0) == 0:
-                self.clearLineAfter()
-            elif sequence.getData(0) == 1:
-                self.clearLineBefore()
+            if sequence.get_data(0) == 0:
+                self.clear_line_after()
+            elif sequence.get_data(0) == 1:
+                self.clear_line_before()
             else:
-                self.clearLine()
+                self.clear_line()
         elif sequence.sequenceType == SequenceType.SCROLL_UP:
-            self.scrollUp(sequence.getData(0))
+            self.scrollUp(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SCROLL_DOWN:
-            self.scrollDown(sequence.getData(0))
+            self.scrollDown(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SELECT_GRAPHIC_RENDITION:
             raise NotImplementedError("too lazy tonight")
         elif sequence.sequenceType == SequenceType.SAVE_CURSOR_POSITION:

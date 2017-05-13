@@ -19,7 +19,7 @@ class AbstractCrawlConnection:
     def connect(self):
         return False
 
-    def crawlLogin(self):
+    def crawl_login(self):
         pass
 
     def disconnect(self):
@@ -32,8 +32,8 @@ class AbstractCrawlConnection:
         pass
 
     def quit(self):
-        self.sendCommand(chr(17), False)
-        self.sendCommand('yes', True)
+        self.send_command(chr(17), False)
+        self.send_command('yes', True)
 
 
 class LocalCC(AbstractCrawlConnection):
@@ -54,16 +54,16 @@ class LocalCC(AbstractCrawlConnection):
                 logfile=self.logfile.buffer)
         self.validConnection = self.process.isalive()
         if(self.validConnection):
-                self.getOutput()
+                self.get_output()
         return self.validConnection
 
     def crawl_login(self):
         # in this case no login is required
         # just select race/class
-        self.sendCommand('\r', False)
-        self.sendCommand('n', False)
-        self.sendCommand('a', False)
-        return self.sendCommand('c', False)
+        self.send_command('\r', False)
+        self.send_command('n', False)
+        self.send_command('a', False)
+        return self.send_command('c', False)
 
     def disconnect(self):
         self.process.terminate()
@@ -83,10 +83,10 @@ class LocalCC(AbstractCrawlConnection):
                 if(not onceMore):
                     onceMore = True
             elif(match == 1):
-                    if(not onceMore):
-                            done = True
-                    else:
-                            onceMore = False
+                if(not onceMore):
+                    done = True
+                else:
+                    onceMore = False
         self.lastOutput = output
         return output
 
@@ -102,7 +102,7 @@ class LocalCC(AbstractCrawlConnection):
             self.process.sendline("\r")
         time.sleep(self.delay)
 
-        return self.getOutput()
+        return self.get_output()
 
 
 class RemoteCC(AbstractCrawlConnection):
@@ -132,12 +132,12 @@ class RemoteCC(AbstractCrawlConnection):
 
     def crawl_login(self):
         # navigate the crawl login commands
-        self.sendCommand('L', False)
-        self.sendCommand(self.username, True)
-        self.sendCommand(self.password, True)
+        self.send_command('L', False)
+        self.send_command(self.username, True)
+        self.send_command(self.password, True)
         # select trunk branch
-        self.sendCommand('T', False)
-        return self.sendCommand('P', False)
+        self.send_command('T', False)
+        return self.send_command('P', False)
 
     def disconnect(self):
         if self.sshClient:
@@ -147,11 +147,11 @@ class RemoteCC(AbstractCrawlConnection):
     def get_output(self):
         output = ''
         while(self.sshChannel.recv_ready()):
-                if(self.isWaitingForResponse):
-                        self.isWaitingForResponse = False
-                buffer = self.sshChannel.recv(self.bufferSize)
-                if(len(buffer) != 0):
-                        output += buffer.decode(UTF8)
+            if(self.isWaitingForResponse):
+                self.isWaitingForResponse = False
+            buffer = self.sshChannel.recv(self.bufferSize)
+            if(len(buffer) != 0):
+                output += buffer.decode(UTF8)
         return output
 
     def send_command(self, command, addNewline):
@@ -162,8 +162,8 @@ class RemoteCC(AbstractCrawlConnection):
 
         if(addNewline):
             self.isWaitingForResponse = True
-            self.getOutput()
+            self.get_output()
             self.sshChannel.send('\n')
             time.sleep(self.delay)
 
-        return self.getOutput()
+        return self.get_output()
