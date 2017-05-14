@@ -22,6 +22,7 @@ class SequenceType(Enum):
     RESTORE_CURSOR_POSITION = "u"
     ENABLE_SETTING = "h"
     DISABLE_SETTING = "l"
+    SET_WINDOW = "r"
     UNKNOWN = "ZZZ"
 
 
@@ -105,6 +106,8 @@ class FakeTerminal():
     def __init__(self, width=80, height=24, ignoreUnsupported=True):
         self.width = width
         self.height = height
+        self.windowTop = 0
+        self.windowBottom = height - 1
         #if we find an escape sequence that's not supported
         #this dictates whether the terminal errors, or silently ignores it
         self.ignoreUnsupported = ignoreUnsupported
@@ -197,8 +200,6 @@ class FakeTerminal():
         return "\n".join("".join(str(char) for char in line) for line in self.terminal)
 
     def move_cursor(self, x, y, wrap):
-        #TODO: doesn't support pushing all text up if completing the last line
-        #TODO: I don't think that's important for supporting dcss, though
         if wrap:
             #only one of these loops should ever fire
             #handles moving 'too far' forward or back
@@ -208,12 +209,20 @@ class FakeTerminal():
             while self.cursorPosition.x + x < 0:
                 x += self.width
                 y -= 1
+        if self.cursorPosition.y + y >= self.height:
+            self.scroll_up((self.cursorPosition.y + y) - (self.height - 1))
+            y = (self.cursorPosition.y + y) - (self.height - 1)
+        #technically, shouldn't need the max/min functions here
+        #but they aren't very expensive, and being safe is cool
         self.cursorPosition.x = max(
                 0, min(self.width - 1, self.cursorPosition.x + x))
         self.cursorPosition.y = max(
                 0, min(self.height - 1, self.cursorPosition.y + y))
 
     def clear_terminal(self):
+        #this also needs to reset cursor position
+        self.cursorPosition.x = 0
+        self.cursorPosition.y = 0
         for i in range(len(self.terminal)):
             for k in range(len(self.terminal[i])):
                 self.terminal[i][k].reset()
@@ -241,9 +250,13 @@ class FakeTerminal():
             self.terminal[self.cursorPosition.y][i].reset()
 
     def scroll_up(self, num):
-        for i in range(self.height):
-            if i < self.height - num:
+        for i in range(self.windowTop, self.windowBottom + 1):
+            #we are shifting num lines
+            #for any line that's more than num lines from the bottom
+            #just copy from the line num lines down
+            if i < self.windowBottom - num:
                 self.terminal[i] = self.terminal[i + num]
+            #if the line is within num lines of the bottom, reset the line
             else:
                 self.terminal[i] = \
                         [self.Character("", None) for _ in range(self.width)]
@@ -251,9 +264,13 @@ class FakeTerminal():
     def scroll_down(self, num):
         # we need to iterate backwards here
         #otherwise, we just copy the first num lines over and over again
-        for i in range(self.height, 0, -1):
-            if i >= num:
+        for i in range(self.windowBottom, self.windowTop + 1, -1):
+            #we are shifting num lines
+            #for any line that's more than num lines from the bottom
+            #just copy from the line num lines down
+            if i >= num + self.windowBottom:
                 self.terminal[i] = self.terminal[i - num]
+            #if the line is within num lines of the bottom, reset
             else:
                 self.terminal[i] = \
                         [self.Character("", None) for _ in range(self.width)]
@@ -273,13 +290,13 @@ class FakeTerminal():
             self.move_cursor(-self.cursorPosition.x, -sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_HORIZONTAL_ABSOLUTE:
             self.cursorPosition.x = max(
-                    0, min(self.width - 1, sequence.get_data(0)))
+                    0, min(self.width - 1, sequence.get_data(0) - 1))
         elif sequence.sequenceType == SequenceType.CURSOR_POSITION \
                 or sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION:
             self.cursorPosition.x = max(
-                    0, min(self.width - 1, sequence.get_data(0)))
+                    0, min(self.width - 1, sequence.get_data(1) - 1))
             self.cursorPosition.y = max(
-                    0, min(self.height - 1, sequence.get_data(1)))
+                    0, min(self.height - 1, sequence.get_data(0) - 1))
         elif sequence.sequenceType == SequenceType.ERASE_IN_DISPLAY:
             if sequence.get_data(0) == 2:
                 self.clear_terminal()
@@ -307,6 +324,15 @@ class FakeTerminal():
             if self.savedCursorPosition.x != -1:
                 self.cursorPosition.x = self.savedCursorPosition.x
                 self.cursorPosition.y = self.savedCursorPosition.y
+        elif sequence.sequenceType == SequenceType.SET_WINDOW:
+            if sequence.get_data(0) == 0 and sequence.get_data(1) == 0:
+                self.windowTop = 0
+                self.windowBottom = self.height - 1
+            else:
+                self.windowTop = max(0,
+                        min(sequence.get_data(0) - 1, self.height - 1))
+                self.windowBottom = max(self.windowTop,
+                        min(sequence.get_data(1) - 1, self.height - 1))
         elif self.ignoreUnsupported:
             #TODO:add some real logging here, to track unsupported sequences
             pass

@@ -28,3 +28,6 @@ def test(username, pw):
         f.write("new text:" + s + "\n")
         f.write("new screen:\n" + str(client.screen) + "\n")
         print(str(client.screen))
+
+def test2(username, pw):
+    return Client(con.RemoteCC(username, pw))
