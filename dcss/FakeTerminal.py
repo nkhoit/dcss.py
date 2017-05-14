@@ -1,5 +1,6 @@
 from enum import Enum
 from collections import namedtuple
+import re
 
 
 class SequenceType(Enum):
@@ -19,6 +20,9 @@ class SequenceType(Enum):
     SELECT_GRAPHIC_RENDITION = "m"
     SAVE_CURSOR_POSITION = "s"
     RESTORE_CURSOR_POSITION = "u"
+    ENABLE_SETTING = "h"
+    DISABLE_SETTING = "l"
+    UNKNOWN = "ZZZ"
 
 
 class ParseException(Exception):
@@ -26,22 +30,41 @@ class ParseException(Exception):
 
 
 class EscapeSequence():
-    def __init__(self, data, endingLetter):
+    #list of escape sequences that use default values of 0
+    #instead of the standard of 1
+    _default0 = [SequenceType.ERASE_IN_DISPLAY, SequenceType.ERASE_IN_LINE,
+            SequenceType.SELECT_GRAPHIC_RENDITION]
+    #list of escape sequences that include an extra '?' in the string
+    _hasQMark = [SequenceType.ENABLE_SETTING, SequenceType.DISABLE_SETTING]
+
+    def __init__(self, data, endingLetter, unknownSeq=None):
         self.data = data
         # save a copy in case it's unknown
+        self.unknownSequence = unknownSeq
         try:
             self.sequenceType = SequenceType(endingLetter)
         except:
-            raise TypeError(
-                    "Unsupported EscapeSequence, ending with: " + endingLetter)
+            #technically, this should have been created using UNKNOWN type
+            #assume it can be recreated 'normally'
+            self.sequenceType = SequenceType.UNKNOWN
+            self.unknownSequence = "\x1b[" + ";".join(
+                    str(x) for x in self.data) + endingLetter
 
-    def get_string(self):
+    def __str__(self):
         # just return the string represnting this sequence
-        return "\033[" + ";".join(
+        if self.unknownSequence:
+            return self.unknownSequence
+        qMark = ""
+        if self.sequenceType in EscapeSequence._hasQMark:
+            qMark = "?"
+        return "\x1b[" + qMark + ";".join(
                 str(x) for x in self.data) + self.sequenceType.value
 
+    def __repr__(self):
+        return repr(str(self))
+
     def get_data(self, index):
-        # this is just a wrapper to handle the logic of defaulting to 1
+        # this is just a wrapper to handle default values
         if not isinstance(index, int):
             raise TypeException("index must be an integer")
         if index < len(self.data):
@@ -49,181 +72,221 @@ class EscapeSequence():
         else:
             # but there are some special cases,
             # because who needs consistency anyways?
-            if self.sequenceType == SequenceType.ERASE_IN_DISPLAY \
-                    or self.sequenceType == SequenceType.ERASE_IN_LINE \
-                    or self.sequenceType == SequenceType.SELECT_GRAPHIC_RENDITION:
+            if self.sequenceType in EscapeSequence._default0:
                 return 0
             else:
                 return 1
 
-
 class FakeTerminal():
-    Position = namedtuple("Position", "x y")
-    Character = namedtuple("Character", "value color")
+    _parser = re.compile(r"^\x1b\[\??([\d;]*)(\w)")
+    #secondary parser for other sequences that are sufficiently different
+    #these commonly don't have data, or don't use nums exclusively for data
+    _unknownParser = re.compile(r"^\x1b[\(\)\=\>\%]([\w\d])?")
+    
+    class Position:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+    
+    class Character:
+        def __init__(self, value, color):
+            self.value = value
+            self.color = color
 
-    def __init__(self, width=80, height=24):
+        def __str__(self):
+            if self.value:
+                return self.value
+            return " "
+
+        def reset(self):
+            self.value = ""
+            self.color = None
+
+    def __init__(self, width=80, height=24, ignoreUnsupported=True):
         self.width = width
         self.height = height
+        #if we find an escape sequence that's not supported
+        #this dictates whether the terminal errors, or silently ignores it
+        self.ignoreUnsupported = ignoreUnsupported
 
         # this is 'backwards' from normal
         # (i.e. to get the char at x,y you do self.terminal[y][x])
         # the purpose of this is to make pushing full lines up easier
-        self.terminal = [[None] * width] * height
-        self.cursorPosition = self.Position(x=0, y=0)
-        self.savedCursorPosition = self.Position(x=-1, y=-1)
+        self.terminal = [
+                [self.Character("", None) for _ in range(self.width)]
+                for __ in range(self.height)]
+        self.cursorPosition = self.Position(0, 0)
+        self.savedCursorPosition = self.Position(-1, -1)
 
         # this represents default coloring,
         # so set it as the current color from the start
-        self.currentColor = EscapeSequence(0, "m")
+        self.currentColor = EscapeSequence([0], "m")
+
+    def __str__(self):
+        return self.get_text()
+
+    def parse_sequence(self, string):
+        match = FakeTerminal._parser.match(string)
+        if not match:
+            match = FakeTerminal._unknownParser.match(string)
+
+            if not match:
+                raise ParseException("Couldn't parse sequence:" + repr(string))
+
+            #just make an unknown sequence
+            return EscapeSequence([], SequenceType.UNKNOWN.value, 
+                    string[match.start():match.end()]), string[match.end():]
+
+        
+        data, char = match.groups()
+
+        if not data:
+            data = []
+        else:
+            data = [int(x) for x in data.split(';')]
+
+        return EscapeSequence(data, char), string[match.end():]
 
     def get_next_sequence(self, string):
-        for i in range(len(string)):
-
+        while string:
             # if the string is an escape sequence,
             # we need to construct the sequence based on the following chars
-            if string[i] == '\033':
-                dataVals = []
-                done = False
-
-                i += 1
-                char = string[i]
-                if char != '[':
-                    # dunno what to do, panic!
-                    raise ParseException("Couldn't parse the character sequence at index(" + str(i-1) + " from string: " + string)
-
-                while not done:
-                    i += 1
-
-                    # this char will either be data, or the end of the string
-                    data = ""
-                    char = string[i]
-
-                    # if this character is a digit,
-                    # then parse until no more digits
-                    while char.isdigit() or char == ";":
-                        # character means we are done with the current number
-                        # input, and are ready for the next input value
-                        if char == ";":
-                            if len(data) != 0:
-                                dataVals.append(int(data))
-                                data = ""
-                            # it is valid to omit a number
-                            # (which defaults it to 1),
-                            # and then immediately have a ;
-                            # to signify the second number is starting
-                            # so, when we don't have a data length, default it
-                            else:
-                                dataVals.append(1)
-                        # number means we just keep building the data value
-                        else:
-                            data += char
-
-                        # finally, prep the loop for
-                        # next iteration, then continue
-                        i += 1
-                        char = string[i]
-
-                    yield EscapeSequence(dataVals, char)
+            if string[0] == '\x1b':
+                #parse_sequence handles truncating the string for iteration
+                seq, string = self.parse_sequence(string)
+                yield seq
 
             # if the string is a normal string, just yield
             else:
-                yield string[i]
+                yield string[0]
+                #slice the string for the next iteration
+                string = string[1:]
 
-    def input_string(self, string):
+    def input(self, string):
         for val in self.get_next_sequence(string):
             if isinstance(val, EscapeSequence):
                 self.apply_sequence(val)
             else:
-                self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
-                        = self.Character(value=val, color=self.currentColor)
+                #handle special case characters
+                if val == '\r':
+                    self.cursorPosition.x = 0
+                elif val == '\b':
+                    self.move_cursor(-1, 0, True)
+                    #TODO: determine if I need to care about wrapping to the
+                    #TODO: previous line, if we are at the 0 position
+                elif val == '\n':
+                    self.move_cursor(0, 1, True)
+                elif val == '\x0f' or val == '\x00':
+                    pass
+                #standard characters
+                else:
+                    self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
+                        = self.Character(val, self.currentColor)
+                    self.move_cursor(1, 0, True)
 
-    def get_just_characters(self, x=0, y=0, w=0, h=0):
+    def get_text(self, x=0, y=0, w=0, h=0, color=False):
         if w == 0:
             w = self.width
         if h == 0:
             h = self.height
-        x = max(0, min(self.width, x))
-        y = max(0, min(self.height, y))
-        w = max(0, min(self.width - x, w))
-        h = max(0, min(self.height - y, h))
+        x = max(0, min(self.width - 1, x))
+        y = max(0, min(self.height - 1, y))
+        w = max(0, min(self.width - 1 - x, w))
+        h = max(0, min(self.height - 1 - y, h))
 
-        result = []
-        for i in range(y, h):
-            result.append("")
-            for j in range(x, w):
-                result[-1] += self.terminal[j][i].value
+        return "\n".join("".join(str(char) for char in line) for line in self.terminal)
 
-        return result
-
-    def get_full_text(self, x=0, y=0, w=0, h=0):
-        if w == 0:
-            w = self.width
-        if h == 0:
-            h = self.height
-        x = max(0, min(self.width, x))
-        y = max(0, min(self.height, y))
-        w = max(0, min(self.width - x, w))
-        h = max(0, min(self.height - y, h))
-
-        result = []
-        for i in range(y, h):
-            result.append("")
-            for j in range(x, w):
-                result[-1] += self.terminal[j][i].color
-                result[-1] += self.terminal[j][i].value
-
-        return result
-
-    def move_cursor(self, x, y):
+    def move_cursor(self, x, y, wrap):
+        #TODO: doesn't support pushing all text up if completing the last line
+        #TODO: I don't think that's important for supporting dcss, though
+        if wrap:
+            #only one of these loops should ever fire
+            #handles moving 'too far' forward or back
+            while self.cursorPosition.x + x >= self.width:
+                y += 1
+                x -= self.width
+            while self.cursorPosition.x + x < 0:
+                x += self.width
+                y -= 1
         self.cursorPosition.x = max(
-                0, min(self.width, self.cursorPosition.x + x))
+                0, min(self.width - 1, self.cursorPosition.x + x))
         self.cursorPosition.y = max(
-                0, min(self.height, self.cursorPosition.y + y))
+                0, min(self.height - 1, self.cursorPosition.y + y))
 
     def clear_terminal(self):
-        for i in len(self.terminal):
-            for k in len(self.terminal[i]):
-                self.terminal[i][k] = None
+        for i in range(len(self.terminal)):
+            for k in range(len(self.terminal[i])):
+                self.terminal[i][k].reset()
+
+    def clear_from_start(self):
+        for i in range(self.cursorPosition.x):
+            for j in range(self.cursorPosition.y):
+                self.terminal[j][i].reset()
+
+    def clear_to_end(self):
+        for i in range(self.cursorPosition.x, self.width):
+            for j in range(self.cursorPosition.y, self.height):
+                self.terminal[j][i].reset()
 
     def clear_line_before(self):
         for i in range(self.cursorPosition.x):
-            self.terminal[self.cursorPosition.y][i] = None
+            self.terminal[self.cursorPosition.y][i].reset()
 
     def clear_line_after(self):
-        for i in range(self.cursorPosition, self.width):
-            self.terminal[self.cursorPosition.y][i] = None
+        for i in range(self.cursorPosition.x, self.width):
+            self.terminal[self.cursorPosition.y][i].reset()
 
     def clear_line(self):
         for i in range(self.width):
-            self.terminal[self.cursorPosition.y][i] = None
+            self.terminal[self.cursorPosition.y][i].reset()
+
+    def scroll_up(self, num):
+        for i in range(self.height):
+            if i < self.height - num:
+                self.terminal[i] = self.terminal[i + num]
+            else:
+                self.terminal[i] = \
+                        [self.Character("", None) for _ in range(self.width)]
+
+    def scroll_down(self, num):
+        # we need to iterate backwards here
+        #otherwise, we just copy the first num lines over and over again
+        for i in range(self.height, 0, -1):
+            if i >= num:
+                self.terminal[i] = self.terminal[i - num]
+            else:
+                self.terminal[i] = \
+                        [self.Character("", None) for _ in range(self.width)]
 
     def apply_sequence(self, sequence):
         if sequence.sequenceType == SequenceType.CURSOR_UP:
-            self.move_cursor(0, -sequence.get_data(0))
+            self.move_cursor(0, -sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_DOWN:
-            self.move_cursor(0, sequence.get_data(0))
+            self.move_cursor(0, sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_FORWARD:
-            self.move_cursor(sequence.get_data(0), 0)
+            self.move_cursor(sequence.get_data(0), 0, False)
         elif sequence.sequenceType == SequenceType.CURSOR_BACK:
-            self.move_cursor(-sequence.get_data(0), 0)
+            self.move_cursor(-sequence.get_data(0), 0, False)
         elif sequence.sequenceType == SequenceType.CURSOR_NEXT_LINE:
-            self.move_cursor(-self.cursorPosition.x, sequence.get_data(0))
+            self.move_cursor(-self.cursorPosition.x, sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_PREVIOUS_LINE:
-            self.move_cursor(-self.cursorPosition.x, -sequence.get_data(0))
+            self.move_cursor(-self.cursorPosition.x, -sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_HORIZONTAL_ABSOLUTE:
             self.cursorPosition.x = max(
-                    0, min(self.width, sequence.get_data(0)))
+                    0, min(self.width - 1, sequence.get_data(0)))
         elif sequence.sequenceType == SequenceType.CURSOR_POSITION \
                 or sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION:
             self.cursorPosition.x = max(
-                    0, min(self.width, sequence.get_data(0)))
+                    0, min(self.width - 1, sequence.get_data(0)))
             self.cursorPosition.y = max(
-                    0, min(self.height, sequence.get_data(1)))
+                    0, min(self.height - 1, sequence.get_data(1)))
         elif sequence.sequenceType == SequenceType.ERASE_IN_DISPLAY:
             if sequence.get_data(0) == 2:
                 self.clear_terminal()
+            elif sequence.get_data(0) == 1:
+                self.clear_from_start()
             else:
-                raise NotImplementedError("currenly only supports erasing full display")
+                self.clear_to_end()
         elif sequence.sequenceType == SequenceType.ERASE_IN_LINE:
             if sequence.get_data(0) == 0:
                 self.clear_line_after()
@@ -232,11 +295,11 @@ class FakeTerminal():
             else:
                 self.clear_line()
         elif sequence.sequenceType == SequenceType.SCROLL_UP:
-            self.scrollUp(sequence.get_data(0))
+            self.scroll_up(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SCROLL_DOWN:
-            self.scrollDown(sequence.get_data(0))
+            self.scroll_down(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SELECT_GRAPHIC_RENDITION:
-            raise NotImplementedError("too lazy tonight")
+            self.currentColor = sequence
         elif sequence.sequenceType == SequenceType.SAVE_CURSOR_POSITION:
             self.savedCursorPosition.x = self.cursorPosition.x
             self.savedCursorPosition.y = self.cursorPosition.y
@@ -244,7 +307,18 @@ class FakeTerminal():
             if self.savedCursorPosition.x != -1:
                 self.cursorPosition.x = self.savedCursorPosition.x
                 self.cursorPosition.y = self.savedCursorPosition.y
-
+        elif self.ignoreUnsupported:
+            #TODO:add some real logging here, to track unsupported sequences
+            pass
+        else:
+            raise NotImplementedError(
+                    "Unsupported sequence: " + repr(sequence))
 
 def test():
-    return FakeTerminal(), open("test.txt", "r")
+    t = FakeTerminal()
+    f = open("test.txt", "r")
+    return t, f
+
+def next(t, f):
+    t.input(f.readline())
+    print(t)
