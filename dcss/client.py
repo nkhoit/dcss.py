@@ -1,5 +1,5 @@
-import CrawlConnection as cc
-import FakeTerminal as ft
+import connection as con
+import fake_terminal as ft
 
 
 class Client:
@@ -16,7 +16,7 @@ class Client:
         return s
 
 def test(username, pw):
-    client = Client(cc.RemoteCC(username, pw))
+    client = Client(con.RemoteCC(username, pw))
     if not client.conn.validConnection:
         return
     f = open("testFT.txt", "w")
