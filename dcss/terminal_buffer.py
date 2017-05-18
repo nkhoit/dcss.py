@@ -78,7 +78,7 @@ class EscapeSequence():
             else:
                 return 1
 
-class FakeTerminal():
+class TerminalBuffer():
     _parser = re.compile(r"^\x1b\[\??([\d;]*)(\w)")
     #secondary parser for other sequences that are sufficiently different
     #these commonly don't have data, or don't use nums exclusively for data
