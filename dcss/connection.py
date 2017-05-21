@@ -8,7 +8,7 @@ COMMAND = 'BOT_CMD:'
 UTF8 = 'utf-8'
 
 
-class AbstractCrawlConnection:
+class Connection:
 
     def __init__(self):
         self.isWaitingForResponse = False
@@ -36,7 +36,7 @@ class AbstractCrawlConnection:
         self.send_command('yes', True)
 
 
-class LocalCC(AbstractCrawlConnection):
+class LocalConnection(Connection):
 
     def __init__(self):
         super().__init__()
@@ -105,7 +105,7 @@ class LocalCC(AbstractCrawlConnection):
         return self.get_output()
 
 
-class RemoteCC(AbstractCrawlConnection):
+class RemoteConnection(Connection):
 
     def __init__(self, crawlLoginName, crawlLoginPassword):
         super().__init__()
