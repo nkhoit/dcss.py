@@ -1,5 +1,3 @@
-import sys
-
 from .connection import LocalConnection, RemoteConnection
 from .terminal_buffer import TerminalBuffer
 from .player import Player
@@ -7,6 +5,10 @@ from .inventory import Inventory
 from .map import Map
 from .spells import Spells
 
+import sys
+import logging, traceback
+
+log = logging.getLogger(__name__)
 
 class Client:
     def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
