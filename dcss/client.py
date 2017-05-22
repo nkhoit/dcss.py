@@ -1,7 +1,6 @@
 import sys
 
-from .connection import LocalConnection
-from .connection import RemoteConnection
+from .connection import LocalConnection, RemoteConnection
 from .terminal_buffer import TerminalBuffer
 from .player import Player
 from .inventory import Inventory
