@@ -11,3 +11,4 @@ from .map import Map
 from .player import Player
 from .spells import Spells
 from .terminal_buffer import TerminalBuffer
+from .connection import RemoteConnection

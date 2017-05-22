@@ -1,6 +1,7 @@
 import sys
 
-from .connection import Connection
+from .connection import LocalConnection
+from .connection import RemoteConnection
 from .terminal_buffer import TerminalBuffer
 from .player import Player
 from .inventory import Inventory
@@ -9,27 +10,26 @@ from .spells import Spells
 
 
 class Client:
-    def __init__(self, crawlConnection):
-        self.conn = crawlConnection
+    def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
+        self.userName = crawlUserName
+        if useRemoteConnection:
+            self.conn = RemoteConnection(crawlUserName, crawlPassword)
+        else:
+            self.conn = LocalConnection()
         self.screen = TerminalBuffer()
         if(self.conn and not self.conn.validConnection):
             if(self.conn.connect()):
                 self.screen.input(self.conn.crawl_login())
 
-    def remote_connect(self, sshUsername, sshPassword):
-        return
+    def get_screen(self):
+        return self.screen.get_text()
 
-    def remote_login(self, crawlUsername, crawlPassword):
-        return
-
-    def local_connect(self):
-        return
-
-    def local_login(self):
-        return
+    def send_command(self, command):
+        self.screen.input(self.conn.send_command(command, False))
+        return self.screen.get_text()
 
 
 if __name__ == '__main__':
-    client = Client(Connection.RemoteCC(sys.argv[1], sys.argv[2]))
+    client = Client(sys.argv[1], sys.argv[2], sys.argv[3])
     if not client.conn.validConnection:
         sys.exit(0)

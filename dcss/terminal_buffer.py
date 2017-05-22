@@ -12,6 +12,7 @@ class SequenceType(Enum):
     CURSOR_PREVIOUS_LINE = "F"
     CURSOR_HORIZONTAL_ABSOLUTE = "G"
     CURSOR_POSITION = "H"
+    CURSOR_VERTICAL_ABSOLUTE = "d"
     ERASE_IN_DISPLAY = "J"
     ERASE_IN_LINE = "K"
     SCROLL_UP = "S"
@@ -129,9 +130,9 @@ class TerminalBuffer():
         return self.get_text()
 
     def parse_sequence(self, string):
-        match = FakeTerminal._parser.match(string)
+        match = TerminalBuffer._parser.match(string)
         if not match:
-            match = FakeTerminal._unknownParser.match(string)
+            match = TerminalBuffer._unknownParser.match(string)
 
             if not match:
                 raise ParseException("Couldn't parse sequence:" + repr(string))
@@ -175,8 +176,6 @@ class TerminalBuffer():
                     self.cursorPosition.x = 0
                 elif val == '\b':
                     self.move_cursor(-1, 0, True)
-                    #TODO: determine if I need to care about wrapping to the
-                    #TODO: previous line, if we are at the 0 position
                 elif val == '\n':
                     self.move_cursor(0, 1, True)
                 elif val == '\x0f' or val == '\x00':
@@ -189,15 +188,16 @@ class TerminalBuffer():
 
     def get_text(self, x=0, y=0, w=0, h=0, color=False):
         if w == 0:
-            w = self.width
+            w = self.width - 1
         if h == 0:
-            h = self.height
+            h = self.height - 1
         x = max(0, min(self.width - 1, x))
         y = max(0, min(self.height - 1, y))
         w = max(0, min(self.width - 1 - x, w))
         h = max(0, min(self.height - 1 - y, h))
 
-        return "\n".join("".join(str(char) for char in line) for line in self.terminal)
+        return "\n".join("".join(str(self.terminal[i][j])
+            for j in range(x, x + w)) for i in range(y, y + h))
 
     def move_cursor(self, x, y, wrap):
         if wrap:
@@ -291,6 +291,9 @@ class TerminalBuffer():
         elif sequence.sequenceType == SequenceType.CURSOR_HORIZONTAL_ABSOLUTE:
             self.cursorPosition.x = max(
                     0, min(self.width - 1, sequence.get_data(0) - 1))
+        elif sequence.sequenceType == SequenceType.CURSOR_VERTICAL_ABSOLUTE:
+            self.cursorPosition.y = max(
+                    0, min(self.height - 1, sequence.get_data(0) - 1))
         elif sequence.sequenceType == SequenceType.CURSOR_POSITION \
                 or sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION:
             self.cursorPosition.x = max(
@@ -340,11 +343,3 @@ class TerminalBuffer():
             raise NotImplementedError(
                     "Unsupported sequence: " + repr(sequence))
 
-def test():
-    t = FakeTerminal()
-    f = open("test.txt", "r")
-    return t, f
-
-def next(t, f):
-    t.input(f.readline())
-    print(t)

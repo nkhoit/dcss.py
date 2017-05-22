@@ -53,17 +53,12 @@ class LocalConnection(Connection):
                 timeout=self.delay,
                 logfile=self.logfile.buffer)
         self.validConnection = self.process.isalive()
-        if(self.validConnection):
-                self.get_output()
         return self.validConnection
 
     def crawl_login(self):
         # in this case no login is required
         # just select race/class
-        self.send_command('\r', False)
-        self.send_command('n', False)
-        self.send_command('a', False)
-        return self.send_command('c', False)
+        return self.send_command('\r', False)
 
     def disconnect(self):
         self.process.terminate()
@@ -73,17 +68,16 @@ class LocalConnection(Connection):
         done = False
         onceMore = True
         output = ''
-        while(not done):
+        while not done:
             match = self.process.expect(['\\x1b\[40m', pexpect.TIMEOUT])
-            if(match == 0):
+            if match == 0:
                 buf = self.process.before
-                if(isinstance(buf, bytes)):
+                if isinstance(buf, bytes):
                     buf = buf.decode()
                 output += buf
-                if(not onceMore):
-                    onceMore = True
-            elif(match == 1):
-                if(not onceMore):
+                onceMore = True
+            elif match == 1:
+                if not onceMore:
                     done = True
                 else:
                     onceMore = False
@@ -93,8 +87,6 @@ class LocalConnection(Connection):
     def send_command(self, command, addNewline):
         if(command):
             self.isWaitingForResponse = True
-            logStringself = SPLITTER + COMMAND + command
-            self.buffer.write(logStringself.encode(UTF8))
             self.process.send(command)
 
         if(addNewline):
