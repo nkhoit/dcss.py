@@ -2,6 +2,9 @@ import paramiko
 import time
 import pexpect
 import datetime
+import logging
+
+log = logging.getLogger(__name__)
 
 SPLITTER = '`~`'
 COMMAND = 'BOT_CMD:'
