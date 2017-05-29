@@ -5,7 +5,7 @@ __license__ = 'MIT'
 
 from .client import Client
 from .abilities import Abilities
-from .connection import Connection, RemoteConnection, LocalConnection
+from .connection import RemoteConnection, LocalConnection
 from .inventory import Inventory
 from .map import Map
 from .player import Player

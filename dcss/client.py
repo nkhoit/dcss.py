@@ -8,6 +8,10 @@ from .spells import Spells
 import sys
 import logging, traceback
 
+logging.basicConfig(
+        filename="dcss.py.log",
+        level=logging.DEBUG,
+        format='%(asctime)s|%(name)s|%(levelname)s|%(message)s')
 log = logging.getLogger(__name__)
 
 class Client:
@@ -29,6 +33,9 @@ class Client:
         self.screen.input(self.conn.send_command(command, False))
         return self.screen.get_text()
 
+    def quit(self):
+        #TODO:support actually saving/quitting based on a parameter
+        self.conn.disconnect()
 
 if __name__ == '__main__':
     client = Client(sys.argv[1], sys.argv[2], sys.argv[3])

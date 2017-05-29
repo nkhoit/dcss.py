@@ -10,57 +10,33 @@ SPLITTER = '`~`'
 COMMAND = 'BOT_CMD:'
 UTF8 = 'utf-8'
 
-
-class Connection:
-
-    def __init__(self):
-        self.isWaitingForResponse = False
-        self.delay = 0.5
-        self.validConnection = False
-        self.lastOutput = ''
-
-    def connect(self):
-        return False
-
-    def crawl_login(self):
-        pass
-
-    def disconnect(self):
-        pass
-
-    def get_output(self):
-        pass
-
-    def send_command(self):
-        pass
-
-    def quit(self):
-        self.send_command(chr(17), False)
-        self.send_command('yes', True)
-
-
-class LocalConnection(Connection):
+class LocalConnection():
 
     def __init__(self):
         super().__init__()
+        self.isWaitingForResponse = False
         self.process = None
         self.delay = 0.25
+        self.validConnection = False
+        self.lastOutput = ''
 
     def connect(self):
         self.process = pexpect.spawn(
                 "crawl",
                 timeout=self.delay)
         self.validConnection = self.process.isalive()
+        log.info("LocalConnection connected:" + str(self.validConnection))
         return self.validConnection
 
     def crawl_login(self):
         # in this case no login is required
-        #return self.send_command('\r', False)
+        log.info("LocalConnection logged in")
         return self.get_output()
 
     def disconnect(self):
         self.process.terminate()
         self.validConnection = False
+        log.info("LocalConnection disconnecting")
 
     def get_output(self):
         done = False
@@ -80,9 +56,11 @@ class LocalConnection(Connection):
                 else:
                     onceMore = False
         self.lastOutput = output
+        log.debug("LocalConnection received: " + repr(self.lastOutput))
         return output
 
     def send_command(self, command, addNewline):
+        log.debug("LocalConnection sending command: " + str(command))
         if(command):
             self.isWaitingForResponse = True
             self.process.send(command)
@@ -95,18 +73,22 @@ class LocalConnection(Connection):
         return self.get_output()
 
 
-class RemoteConnection(Connection):
+class RemoteConnection():
 
     def __init__(self, crawlLoginName, crawlLoginPassword):
         super().__init__()
+        self.isWaitingForResponse = False
         self.connectionString = "crawl.akrasiac.org"
         self.sshUsername = "joshua"
         self.sshPassword = "joshua"
+        self.delay = 0.5
         self.username = crawlLoginName
         self.password = crawlLoginPassword
         self.sshClient = None
         self.sshChannel = None
         self.bufferSize = 4096
+        self.validConnection = False
+        self.lastOutput = ''
 
     def connect(self):
         self.sshClient = paramiko.SSHClient()
@@ -116,9 +98,10 @@ class RemoteConnection(Connection):
                 username=self.sshUsername,
                 password=self.sshPassword)
         self.sshChannel = self.sshClient.invoke_shell()
+        #TODO:figure a way to verify connecting was successful
         self.validConnection = True
-
-        return True
+        log.info("RemoteConnection connected: " + str(self.validConnection))
+        return self.validConnection
 
     def crawl_login(self):
         # navigate the crawl login commands
@@ -127,12 +110,15 @@ class RemoteConnection(Connection):
         self.send_command(self.password, True)
         # select trunk branch
         self.send_command('T', False)
-        return self.send_command('P', False)
+        result = self.send_command('P', False)
+        log.info("RemoteConnection logged in")
+        return result
 
     def disconnect(self):
         if self.sshClient:
             self.sshClient.close()
         self.validConnection = False
+        log.info("RemoteConnection disconnected")
 
     def get_output(self):
         output = ''
@@ -142,9 +128,12 @@ class RemoteConnection(Connection):
             buffer = self.sshChannel.recv(self.bufferSize)
             if(len(buffer) != 0):
                 output += buffer.decode(UTF8)
+        self.lastOutput = output
+        log.debug("RemoteConnection received: " + repr(self.lastOutput))
         return output
 
     def send_command(self, command, addNewline):
+        log.debug("RemoteConnection sending command: " + str(command))
         if(command):
             self.isWaitingForResponse = True
             self.sshChannel.send(command)

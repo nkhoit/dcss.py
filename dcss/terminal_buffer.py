@@ -1,7 +1,8 @@
 from enum import Enum
 from collections import namedtuple
-import re
+import re, logging
 
+log = logging.getLogger(__name__)
 
 class SequenceType(Enum):
     CURSOR_UP = "A"
@@ -149,8 +150,10 @@ class TerminalBuffer():
             data = []
         else:
             data = [int(x) for x in data.split(';')]
-
-        return EscapeSequence(data, char), string[match.end():]
+        
+        result = EscapeSequence(data, char), string[match.end():]
+        log.debug("Parsed sequence: " + repr(result[0]))
+        return result
 
     def get_next_sequence(self, string):
         while string:
@@ -313,8 +316,8 @@ class TerminalBuffer():
         elif sequence.sequenceType == SequenceType.CURSOR_VERTICAL_ABSOLUTE:
             self.cursorPosition.y = max(
                     0, min(self.height - 1, sequence.get_data(0) - 1))
-        elif sequence.sequenceType == SequenceType.CURSOR_POSITION \
-                or sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION:
+        elif sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION \
+                or sequence.sequenceType == SequenceType.CURSOR_POSITION:
             self.cursorPosition.x = max(
                     0, min(self.width - 1, sequence.get_data(1) - 1))
             self.cursorPosition.y = max(
@@ -359,6 +362,7 @@ class TerminalBuffer():
                         min(sequence.get_data(1) - 1, self.height - 1))
         elif self.ignoreUnsupported:
             #TODO:add some real logging here, to track unsupported sequences
+            log.warning("ignoring unsupported sequence: " + repr(sequence))
             pass
         else:
             raise NotImplementedError(
