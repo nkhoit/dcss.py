@@ -15,6 +15,7 @@ class SequenceType(Enum):
     CURSOR_VERTICAL_ABSOLUTE = "d"
     ERASE_IN_DISPLAY = "J"
     ERASE_IN_LINE = "K"
+    ERASE_CHARACTER = "X"
     SCROLL_UP = "S"
     SCROLL_DOWN = "T"
     HORIZONTAL_VERTICAL_POSITION = "f"
@@ -275,6 +276,24 @@ class TerminalBuffer():
                 self.terminal[i] = \
                         [self.Character("", None) for _ in range(self.width)]
 
+    def push_characters_left(self, amount):
+        #this is effectively deleting characters
+        #and pushing the remaining characters back, due to the removed chars
+        #we can just move the characters, overwriting the old values
+        amount = self.width - self.cursorPosition.x
+        for i in range(amount):
+            #move characters that aren't being deleted
+            if self.cursorPosition.x + i + amount < self.width:
+                self.terminal[self.cursorPosition.y]\
+                        [self.cursorPosition.x + i] = \
+                        self.terminal[self.cursorPosition.y]\
+                        [self.cursorPosition.x + i + amount]
+            #clear characters if the source would be outside the screen
+            else:
+                self.terminal[self.cursorPosition.y]\
+                        [self.cursorPosition.x] = self.Character("", None)
+
+
     def apply_sequence(self, sequence):
         if sequence.sequenceType == SequenceType.CURSOR_UP:
             self.move_cursor(0, -sequence.get_data(0), False)
@@ -314,6 +333,8 @@ class TerminalBuffer():
                 self.clear_line_before()
             else:
                 self.clear_line()
+        elif sequence.sequenceType == SequenceType.ERASE_CHARACTER:
+            self.push_characters_left(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SCROLL_UP:
             self.scroll_up(sequence.get_data(0))
         elif sequence.sequenceType == SequenceType.SCROLL_DOWN:

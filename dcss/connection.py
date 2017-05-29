@@ -44,24 +44,19 @@ class LocalConnection(Connection):
     def __init__(self):
         super().__init__()
         self.process = None
-        self.logfile = None
         self.delay = 0.25
 
     def connect(self):
-        self.logfile = open(
-                'crawlbot_' + datetime.datetime.now().strftime(
-                    "%Y-%m-%d_%H-%M-%S") + ".clg", "w")
         self.process = pexpect.spawn(
                 "crawl",
-                timeout=self.delay,
-                logfile=self.logfile.buffer)
+                timeout=self.delay)
         self.validConnection = self.process.isalive()
         return self.validConnection
 
     def crawl_login(self):
         # in this case no login is required
-        # just select race/class
-        return self.send_command('\r', False)
+        #return self.send_command('\r', False)
+        return self.get_output()
 
     def disconnect(self):
         self.process.terminate()
