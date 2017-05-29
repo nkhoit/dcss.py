@@ -283,18 +283,15 @@ class TerminalBuffer():
         #this is effectively deleting characters
         #and pushing the remaining characters back, due to the removed chars
         #we can just move the characters, overwriting the old values
-        amount = self.width - self.cursorPosition.x
-        for i in range(amount):
+        for i in range(self.cursorPosition.x, self.width):
             #move characters that aren't being deleted
-            if self.cursorPosition.x + i + amount < self.width:
-                self.terminal[self.cursorPosition.y]\
-                        [self.cursorPosition.x + i] = \
-                        self.terminal[self.cursorPosition.y]\
-                        [self.cursorPosition.x + i + amount]
+            if i + amount < self.width:
+                self.terminal[self.cursorPosition.y][i] = \
+                        self.terminal[self.cursorPosition.y][i + amount]
             #clear characters if the source would be outside the screen
             else:
-                self.terminal[self.cursorPosition.y]\
-                        [self.cursorPosition.x] = self.Character("", None)
+                self.terminal[self.cursorPosition.y][i] = \
+                        self.Character("", None)
 
 
     def apply_sequence(self, sequence):
