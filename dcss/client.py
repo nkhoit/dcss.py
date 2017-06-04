@@ -4,6 +4,7 @@ from .player import Player
 from .inventory import Inventory
 from .map import Map
 from .spells import Spells
+from .abilities import Abilities
 from enum import Enum
 
 import sys
@@ -23,6 +24,7 @@ class Screens(Enum):
     DUNGEON = 5
     SPELLS = 6
     RELIGION = 7
+    ABILITIES = 8
 
 class Client:
     def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
@@ -32,6 +34,7 @@ class Client:
         self.inventory = Inventory()
         self.map = Map()
         self.spells = Spell()
+        self.abilities = Abilities()
         
         if useRemoteConnection:
             self.conn = RemoteConnection(crawlUserName, crawlPassword)
@@ -132,6 +135,14 @@ class Client:
             self.screen = Screens.RELIGION
         return result
 
+    def abilities_screen(self):
+        if self.screen != Screens.MAIN:
+            return False
+        self.send_command('a')
+        result = not self.check_main_screen()
+        if result:
+            self.screen = Screens.ABILITIES
+        return result
 
     #END: COMMAND LIST
 
