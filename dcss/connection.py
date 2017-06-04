@@ -12,13 +12,14 @@ UTF8 = 'utf-8'
 
 class LocalConnection():
 
-    def __init__(self):
+    def __init__(self, playerName):
         super().__init__()
         self.isWaitingForResponse = False
         self.process = None
         self.delay = 0.25
         self.validConnection = False
         self.lastOutput = ''
+        self.playerName = playerName
 
     def connect(self):
         self.process = pexpect.spawn(
@@ -29,9 +30,11 @@ class LocalConnection():
         return self.validConnection
 
     def crawl_login(self):
-        # in this case no login is required
+        #'logging in' in this case is typing out the player's name
+        #and either starting a new game, or loading the old one
         log.info("LocalConnection logged in")
-        return self.get_output()
+        self.send_command(self.playerName)
+        return self.send_command('\r')
 
     def disconnect(self):
         self.process.terminate()
@@ -59,7 +62,7 @@ class LocalConnection():
         log.debug("LocalConnection received: " + repr(self.lastOutput))
         return output
 
-    def send_command(self, command, addNewline):
+    def send_command(self, command, addNewline=False):
         log.debug("LocalConnection sending command: " + str(command))
         if(command):
             self.isWaitingForResponse = True
@@ -67,7 +70,7 @@ class LocalConnection():
 
         if(addNewline):
             self.isWaitingForResponse = True
-            self.process.sendline("\r")
+            self.process.send("\r")
         time.sleep(self.delay)
 
         return self.get_output()

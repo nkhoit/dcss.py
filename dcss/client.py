@@ -33,13 +33,13 @@ class Client:
         self.player = Player()
         self.inventory = Inventory()
         self.map = Map()
-        self.spells = Spell()
+        self.spells = Spells()
         self.abilities = Abilities()
         
         if useRemoteConnection:
             self.conn = RemoteConnection(crawlUserName, crawlPassword)
         else:
-            self.conn = LocalConnection()
+            self.conn = LocalConnection(crawlUserName)
         self.terminal = TerminalBuffer()
         if(self.conn and not self.conn.validConnection):
             if(self.conn.connect()):
