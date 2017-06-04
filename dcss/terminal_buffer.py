@@ -152,7 +152,6 @@ class TerminalBuffer():
             data = [int(x) for x in data.split(';')]
         
         result = EscapeSequence(data, char), string[match.end():]
-        log.debug("Parsed sequence: " + repr(result[0]))
         return result
 
     def get_next_sequence(self, string):
