@@ -5,6 +5,7 @@ from .inventory import Inventory
 from .map import Map
 from .spells import Spells
 from .abilities import Abilities
+from .screens import Screens
 from enum import Enum
 
 import sys
@@ -16,15 +17,11 @@ logging.basicConfig(
         format='%(asctime)s|%(name)s|%(levelname)s|%(message)s')
 log = logging.getLogger(__name__)
 
-class Screens(Enum):
-    MAIN = 1
-    SKILLS = 2
-    INVENTORY = 3
-    CHARACTER = 4
-    DUNGEON = 5
-    SPELLS = 6
-    RELIGION = 7
-    ABILITIES = 8
+class Direction(Enum):
+    UP = 1
+    DOWN = 2
+    LEFT = 3
+    RIGHT = 4
 
 class Client:
     def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
@@ -35,6 +32,7 @@ class Client:
         self.map = Map()
         self.spells = Spells()
         self.abilities = Abilities()
+        self.fresh = False
         
         if useRemoteConnection:
             self.conn = RemoteConnection(crawlUserName, crawlPassword)
@@ -44,6 +42,9 @@ class Client:
         if(self.conn and not self.conn.validConnection):
             if(self.conn.connect()):
                 self.terminal.input(self.conn.crawl_login())
+        #TODO:crawl_login needs to actually put the client in game
+        #self.update()
+        pass
 
     def get_screen(self):
         return self.terminal.get_text()
@@ -63,88 +64,63 @@ class Client:
         #TODO:support actually saving/quitting based on a parameter
         self.conn.disconnect()
 
+    def update(self):
+        #go through each screen type, and update each parser with that screen
+        #at the end, if everything completed properly, mark data as 'fresh'
+        result = True
 
-    #BEGIN: COMMAND LIST
-    #does python have regions? that's what I'm going for here
-    #these are all the functions that encapsulate commands
+        #if at any point a transition fails, stop trying to update
+        #do not update data freshness
+        for s in Screens:
+            result = result and self.set_screen(s)
+            if result:
+                toParse = self.get_screen()
+                self.player.update(s, toParse)
+                self.inventory.update(s, toParse)
+                self.map.update(s, toParse)
+                self.spells.update(s, toParse)
+                self.abilities.update(s, toParse)
 
-    def main_screen(self):
-        #if we aren't on the main screen, then try sending an ESC key
-        if self.screen == Screens.MAIN:
-            return true
-        self.send_command('\x1b')
-        result = self.check_main_screen()
-        if result:
-            self.screen = Screens.MAIN
+        self.fresh = result
         return result
 
-    def skills_screen(self):
-        #we only know how to get to skills screen from the main screen
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('m')
-        #if we send the skills command, and are no longer on the main screen
-        #we must be on the skills screen (hopefully?)
-        result = not self.check_main_screen()
+    def set_screen(self, screenType):
+        result = True
+        if self.screen == screenType:
+            return True
+        #if we are trying to get to the main screen, send ESC key
+        if screenType == Screens.MAIN:
+            self.send_command('\x1b')
+            result = self.check_main_screen()
+        else:
+            #moving between secondary screens requires going to main first
+            if self.screen != Screens.MAIN:
+                result = self.set_screen(Screens.MAIN)
+            #ensure transition was successful (if needed)
+            if result:
+                if screenType == Screens.SKILLS:
+                    self.send_command('m')
+                elif screenType == Screens.INVENTORY:
+                    self.send_command('i')
+                elif screenType == Screens.CHARACTER:
+                    self.send_command('%')
+                elif screenType == Screens.DUNGEON:
+                    self.send_command('\x0f')
+                elif screenType == Screens.SPELLS:
+                    self.send_command('I')
+                elif screenType == Screens.RELIGION:
+                    self.send_command('^')
+                elif screenType == Screens.ABILITIES:
+                    self.send_command('a')
+                else:
+                    raise Exception('Unrecognized screen type: ' + str(screenType))
+                #being on the main screen is a precondition for getting here
+                #so, if we are not on the main screen after this command
+                #the screen transition was successful
+                result = not self.check_main_screen()
         if result:
-            self.screen = Screens.SKILLS
+            self.screen = screenType
         return result
-
-    def inventory_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('i')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.INVENTORY
-        return result
-
-    def character_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('%')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.CHARACTER
-        return result
-
-    def dungeon_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('\x0f')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.DUNGEON
-        return result
-
-    def spells_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('I')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.SPELLS
-        return result
-
-    def religion_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('^')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.RELIGION
-        return result
-
-    def abilities_screen(self):
-        if self.screen != Screens.MAIN:
-            return False
-        self.send_command('a')
-        result = not self.check_main_screen()
-        if result:
-            self.screen = Screens.ABILITIES
-        return result
-
-    #END: COMMAND LIST
 
 if __name__ == '__main__':
     client = Client(sys.argv[1], sys.argv[2], sys.argv[3])
