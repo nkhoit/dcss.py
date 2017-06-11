@@ -204,7 +204,6 @@ class TerminalBuffer():
 
     def move_cursor(self, x, y, wrap):
         if wrap:
-            #only one of these loops should ever fire
             #handles moving 'too far' forward or back
             while self.cursorPosition.x + x >= self.width:
                 y += 1
@@ -212,9 +211,9 @@ class TerminalBuffer():
             while self.cursorPosition.x + x < 0:
                 x += self.width
                 y -= 1
-        if self.cursorPosition.y + y >= self.height:
-            self.scroll_up((self.cursorPosition.y + y) - (self.height - 1))
-            y = (self.cursorPosition.y + y) - (self.height - 1)
+        if self.cursorPosition.y + y >= self.windowBottom:
+            self.scroll_up((self.cursorPosition.y + y) - (self.windowBottom - 1))
+            y = (self.cursorPosition.y + y) - (self.windowBottom - 1)
         #technically, shouldn't need the max/min functions here
         #but they aren't very expensive, and being safe is cool
         self.cursorPosition.x = max(

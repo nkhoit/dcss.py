@@ -25,9 +25,17 @@ class Direction(Enum):
 
 class Client:
     _new_game_text = "Welcome, {}. Please select your species."
+    #these are for matching failed transitions, due to the screen being empty
     _no_abilities = "Sorry, you're not good enough to have a special ability."
     _no_spells = "You don't know any spells."
     _no_religion = "You are not religious."
+    #these are for helping keep track of messages as their own entity
+    _message_line_start = 17
+    _message_line_end = 22
+    #these are for when a single action spawns 'too many' messages
+    #aka runrest
+    _more_line = 23
+    _more_text = "--more--"
 
     def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
         self.user_name = crawlUserName
@@ -38,7 +46,7 @@ class Client:
         self.spells = Spells()
         self.abilities = Abilities()
         self.fresh = False
-        self.new_game = False
+        self.messages = []
         
         if useRemoteConnection:
             self.conn = RemoteConnection(crawlUserName, crawlPassword)
@@ -57,14 +65,48 @@ class Client:
     def get_screen(self):
         return self.terminal.get_text()
 
-    def get_screen_type(self):
-        return self.screen
-
     def send_command(self, command):
+        #self._send_command_helper(command)
+        #self._update_messages()
         self.terminal.input(self.conn.send_command(command, False))
         return self.terminal.get_text()
 
-    def check_main_screen(self):
+    def _send_command_helper(self, command):
+        #this exists to avoid recursive calls when handling 'more' messages
+        self.terminal.input(self.conn.send_command(command, False))
+
+    def _more_message_exists(self):
+        return self.terminal.get_text(0,Client._more_line,0,1).strip() ==\
+                Client._more_text
+
+    def _update_messages(self):
+        #keeping track of messages line by line
+
+        #messages only appear on main screen
+        if self.screen == Screens.MAIN:
+            done = False
+            while not done:
+                oldestNewMessage = Client._message_line_start
+                #otherwise, match the last line we have
+                for i in range(
+                        Client._message_line_start,
+                        Client._message_line_end + 1,
+                        -1):
+                    if self.terminal.get_text(0,i,0,1).strip() == \
+                            self.messages[-1]:
+                        oldestNewMessage = i+1
+                        break
+
+                for i in range(oldestNewMessage, Client._message_line_end + 1):
+                    self.messages.append(self.terminal.get_text(0,i,0,1)
+                            .strip())
+                
+                #if we have more messages send ' ' and repeat
+                done = not self._more_message_exists()
+                if not done:
+                    self._send_command_helper(' ')
+
+    def _check_main_screen(self):
         name = self.terminal.get_text(37, 0, len(self.userName), 1, False)
         return name == self.userName
 
@@ -98,7 +140,7 @@ class Client:
         #if we are trying to get to the main screen, send ESC key
         if screenType == Screens.MAIN:
             self.send_command('\x1b')
-            result = self.check_main_screen()
+            result = self._check_main_screen()
         else:
             #moving between secondary screens requires going to main first
             if self.screen != Screens.MAIN:
@@ -124,7 +166,7 @@ class Client:
                 #being on the main screen is a precondition for getting here
                 #so, if we are not on the main screen after this command
                 #the screen transition was successful
-                result = not self.check_main_screen()
+                result = not self._check_main_screen()
         if result:
             self.screen = screenType
         return result

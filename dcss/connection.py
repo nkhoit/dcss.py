@@ -26,6 +26,7 @@ class LocalConnection():
                 "crawl",
                 timeout=self.delay)
         self.validConnection = self.process.isalive()
+        self.process.setwinsize(24, 80)
         log.info("LocalConnection connected:" + str(self.validConnection))
         return self.validConnection
 
