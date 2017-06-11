@@ -42,9 +42,8 @@ class Client:
         if(self.conn and not self.conn.validConnection):
             if(self.conn.connect()):
                 self.terminal.input(self.conn.crawl_login())
-        #TODO:crawl_login needs to actually put the client in game
-        #self.update()
-        pass
+            else:
+                raise Exception("failed to connect")
 
     def get_screen(self):
         return self.terminal.get_text()
@@ -74,12 +73,11 @@ class Client:
         for s in Screens:
             result = result and self.set_screen(s)
             if result:
-                toParse = self.get_screen()
-                self.player.update(s, toParse)
-                self.inventory.update(s, toParse)
-                self.map.update(s, toParse)
-                self.spells.update(s, toParse)
-                self.abilities.update(s, toParse)
+                self.player.update(s, self.terminal)
+                self.inventory.update(s, self.terminal)
+                self.map.update(s, self.terminal)
+                self.spells.update(s, self.terminal)
+                self.abilities.update(s, self.terminal)
 
         self.fresh = result
         return result

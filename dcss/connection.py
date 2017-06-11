@@ -32,9 +32,12 @@ class LocalConnection():
     def crawl_login(self):
         #'logging in' in this case is typing out the player's name
         #and either starting a new game, or loading the old one
-        log.info("LocalConnection logged in")
-        self.send_command(self.playerName)
-        return self.send_command('\r')
+        log.info("LocalConnection logging in with name: " + self.playerName)
+
+        #get_output ensures the program has fully loaded before continuing
+        self.get_output()
+
+        return self.send_command(self.playerName, True)
 
     def disconnect(self):
         self.process.terminate()
