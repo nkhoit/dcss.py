@@ -24,8 +24,13 @@ class Direction(Enum):
     RIGHT = 4
 
 class Client:
+    _new_game_text = "Welcome, {}. Please select your species."
+    _no_abilities = "Sorry, you're not good enough to have a special ability."
+    _no_spells = "You don't know any spells."
+    _no_religion = "You are not religious."
+
     def __init__(self, crawlUserName, crawlPassword, useRemoteConnection):
-        self.userName = crawlUserName
+        self.user_name = crawlUserName
         self.screen = Screens.MAIN
         self.player = Player()
         self.inventory = Inventory()
@@ -33,6 +38,7 @@ class Client:
         self.spells = Spells()
         self.abilities = Abilities()
         self.fresh = False
+        self.new_game = False
         
         if useRemoteConnection:
             self.conn = RemoteConnection(crawlUserName, crawlPassword)
@@ -44,6 +50,9 @@ class Client:
                 self.terminal.input(self.conn.crawl_login())
             else:
                 raise Exception("failed to connect")
+
+        self.new_game = self.terminal.get_text(0,0,0,1).startswith(
+                Client._new_game_text.format(self.user_name))
 
     def get_screen(self):
         return self.terminal.get_text()
