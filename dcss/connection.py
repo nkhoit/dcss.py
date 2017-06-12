@@ -10,10 +10,10 @@ SPLITTER = '`~`'
 COMMAND = 'BOT_CMD:'
 UTF8 = 'utf-8'
 
+
 class LocalConnection():
 
     def __init__(self, playerName):
-        super().__init__()
         self.isWaitingForResponse = False
         self.process = None
         self.delay = 0.25
@@ -23,23 +23,23 @@ class LocalConnection():
 
     def connect(self):
         self.process = pexpect.spawn(
-                "crawl",
-                timeout=self.delay)
+            "crawl",
+            timeout=self.delay)
         self.validConnection = self.process.isalive()
         log.info("LocalConnection connected:" + str(self.validConnection))
         return self.validConnection
 
     def crawl_login(self):
         #'logging in' in this case is typing out the player's name
-        #and either starting a new game, or loading the old one
+        # and either starting a new game, or loading the old one
         log.info("LocalConnection logging in with name: " + self.playerName)
 
-        #get_output ensures the program has fully loaded before continuing
+        # get_output ensures the program has fully loaded before continuing
         self.get_output()
         self.send_command(self.playerName, True)
 
-        #workaround for a weird bug?
-        self.process.setwinsize(24,80)
+        # workaround for a weird bug?
+        self.process.setwinsize(24, 80)
         #\x12 is Ctrl+R (redraw)
         return self.send_command('\x12', False)
 
@@ -73,7 +73,10 @@ class LocalConnection():
         newlineLog = ""
         if addNewline:
             newlineLog = "\\r"
-        log.debug("LocalConnection sending command: " + repr(command) + newlineLog)
+        log.debug(
+            "LocalConnection sending command: " +
+            repr(command) +
+            newlineLog)
         if(command):
             self.isWaitingForResponse = True
             self.process.send(command)
@@ -107,11 +110,11 @@ class RemoteConnection():
         self.sshClient = paramiko.SSHClient()
         self.sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.sshClient.connect(
-                self.connectionString,
-                username=self.sshUsername,
-                password=self.sshPassword)
+            self.connectionString,
+            username=self.sshUsername,
+            password=self.sshPassword)
         self.sshChannel = self.sshClient.invoke_shell()
-        #TODO:figure a way to verify connecting was successful
+        # TODO:figure a way to verify connecting was successful
         self.validConnection = True
         log.info("RemoteConnection connected: " + str(self.validConnection))
         return self.validConnection

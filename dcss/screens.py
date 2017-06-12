@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Screens(Enum):
     MAIN = 1
     SKILLS = 2
