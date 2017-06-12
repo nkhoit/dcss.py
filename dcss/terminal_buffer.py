@@ -144,10 +144,10 @@ class TerminalBuffer():
 
             # just make an unknown sequence
             return EscapeSequence(
-                    [],
-                    SequenceType.UNKNOWN.value,
-                    string[match.start():match.end()]
-                    ),string[match.end():]
+                [],
+                SequenceType.UNKNOWN.value,
+                string[match.start():match.end()]
+            ), string[match.end():]
 
         data, char = match.groups()
 
@@ -191,8 +191,7 @@ class TerminalBuffer():
                     pass
                 # standard characters
                 else:
-                    self.terminal[self.cursorPosition.y] \
-                        [self.cursorPosition.x] \
+                    self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
                         = self.Character(val, self.currentColor)
                     self.move_cursor(1, 0, True)
 
