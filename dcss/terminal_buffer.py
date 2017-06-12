@@ -191,7 +191,8 @@ class TerminalBuffer():
                     pass
                 # standard characters
                 else:
-                    self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
+                    self.terminal[self.cursorPosition.y] \
+                        [self.cursorPosition.x] \
                         = self.Character(val, self.currentColor)
                     self.move_cursor(1, 0, True)
 
