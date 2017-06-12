@@ -11,6 +11,7 @@ from .map import Map
 from .player import Player
 from .spells import Spells
 from .terminal_buffer import TerminalBuffer
+from .screens import Screens
 
 import logging
 

@@ -32,9 +32,16 @@ class LocalConnection():
     def crawl_login(self):
         #'logging in' in this case is typing out the player's name
         #and either starting a new game, or loading the old one
-        log.info("LocalConnection logged in")
-        self.send_command(self.playerName)
-        return self.send_command('\r')
+        log.info("LocalConnection logging in with name: " + self.playerName)
+
+        #get_output ensures the program has fully loaded before continuing
+        self.get_output()
+        self.send_command(self.playerName, True)
+
+        #workaround for a weird bug?
+        self.process.setwinsize(24,80)
+        #\x12 is Ctrl+R (redraw)
+        return self.send_command('\x12', False)
 
     def disconnect(self):
         self.process.terminate()
@@ -63,7 +70,10 @@ class LocalConnection():
         return output
 
     def send_command(self, command, addNewline=False):
-        log.debug("LocalConnection sending command: " + str(command))
+        newlineLog = ""
+        if addNewline:
+            newlineLog = "\\r"
+        log.debug("LocalConnection sending command: " + repr(command) + newlineLog)
         if(command):
             self.isWaitingForResponse = True
             self.process.send(command)

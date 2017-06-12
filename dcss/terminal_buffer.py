@@ -170,9 +170,10 @@ class TerminalBuffer():
                 string = string[1:]
 
     def input(self, string):
+        log_dict = {}
         for val in self.get_next_sequence(string):
             if isinstance(val, EscapeSequence):
-                self.apply_sequence(val)
+                self.apply_sequence(val, log_dict)
             else:
                 #handle special case characters
                 if val == '\r':
@@ -189,6 +190,9 @@ class TerminalBuffer():
                         = self.Character(val, self.currentColor)
                     self.move_cursor(1, 0, True)
 
+        if len(log_dict):
+            log.warning("Ignored sequence counts: " + str(log_dict))
+
     def get_text(self, x=0, y=0, w=0, h=0, color=False):
         if w == 0:
             w = self.width - 1
@@ -204,7 +208,6 @@ class TerminalBuffer():
 
     def move_cursor(self, x, y, wrap):
         if wrap:
-            #only one of these loops should ever fire
             #handles moving 'too far' forward or back
             while self.cursorPosition.x + x >= self.width:
                 y += 1
@@ -212,9 +215,9 @@ class TerminalBuffer():
             while self.cursorPosition.x + x < 0:
                 x += self.width
                 y -= 1
-        if self.cursorPosition.y + y >= self.height:
-            self.scroll_up((self.cursorPosition.y + y) - (self.height - 1))
-            y = (self.cursorPosition.y + y) - (self.height - 1)
+        if self.cursorPosition.y + y >= self.windowBottom:
+            self.scroll_up((self.cursorPosition.y + y) - (self.windowBottom - 1))
+            y = (self.cursorPosition.y + y) - (self.windowBottom - 1)
         #technically, shouldn't need the max/min functions here
         #but they aren't very expensive, and being safe is cool
         self.cursorPosition.x = max(
@@ -293,7 +296,7 @@ class TerminalBuffer():
                         self.Character("", None)
 
 
-    def apply_sequence(self, sequence):
+    def apply_sequence(self, sequence, log_dict):
         if sequence.sequenceType == SequenceType.CURSOR_UP:
             self.move_cursor(0, -sequence.get_data(0), False)
         elif sequence.sequenceType == SequenceType.CURSOR_DOWN:
@@ -352,14 +355,19 @@ class TerminalBuffer():
                 self.windowTop = 0
                 self.windowBottom = self.height - 1
             else:
-                self.windowTop = max(0,
-                        min(sequence.get_data(0) - 1, self.height - 1))
-                self.windowBottom = max(self.windowTop,
-                        min(sequence.get_data(1) - 1, self.height - 1))
+                if sequence.get_data(0) - 1 > self.height or\
+                        sequence.get_data(0) - 1 < 0 or\
+                        sequence.get_data(1) - 1 > self.height or\
+                        sequence.get_data(1) < sequence.get_data(0):
+                    log.warning("ignoring windowSize: " + repr(sequence))
+                else:
+                    self.windowTop = sequence.get_data(0) - 1
+                    self.windowBottom = sequence.get_data(1) - 1
         elif self.ignoreUnsupported:
-            #TODO:add some real logging here, to track unsupported sequences
-            log.warning("ignoring unsupported sequence: " + repr(sequence))
-            pass
+            if str(sequence) in log_dict.keys():
+                log_dict[str(sequence)] += 1
+            else:
+                log_dict[str(sequence)] = 1
         else:
             raise NotImplementedError(
                     "Unsupported sequence: " + repr(sequence))
