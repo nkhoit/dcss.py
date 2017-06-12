@@ -143,8 +143,11 @@ class TerminalBuffer():
                 raise ParseException("Couldn't parse sequence:" + repr(string))
 
             # just make an unknown sequence
-            return EscapeSequence([], SequenceType.UNKNOWN.value,
-                                  string[match.start():match.end()]), string[match.end():]
+            return EscapeSequence(
+                    [],
+                    SequenceType.UNKNOWN.value,
+                    string[match.start():match.end()]
+                    ),string[match.end():]
 
         data, char = match.groups()
 
@@ -188,7 +191,8 @@ class TerminalBuffer():
                     pass
                 # standard characters
                 else:
-                    self.terminal[self.cursorPosition.y][self.cursorPosition.x] \
+                    self.terminal[self.cursorPosition.y] \
+                        [self.cursorPosition.x] \
                         = self.Character(val, self.currentColor)
                     self.move_cursor(1, 0, True)
 
@@ -319,7 +323,8 @@ class TerminalBuffer():
         elif sequence.sequenceType == SequenceType.CURSOR_VERTICAL_ABSOLUTE:
             self.cursorPosition.y = max(
                 0, min(self.height - 1, sequence.get_data(0) - 1))
-        elif sequence.sequenceType == SequenceType.HORIZONTAL_VERTICAL_POSITION \
+        elif sequence.sequenceType == \
+                SequenceType.HORIZONTAL_VERTICAL_POSITION \
                 or sequence.sequenceType == SequenceType.CURSOR_POSITION:
             self.cursorPosition.x = max(
                 0, min(self.width - 1, sequence.get_data(1) - 1))

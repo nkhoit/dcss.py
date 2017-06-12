@@ -30,7 +30,7 @@ class LocalConnection():
         return self.validConnection
 
     def crawl_login(self):
-        #'logging in' in this case is typing out the player's name
+        # 'logging in' in this case is typing out the player's name
         # and either starting a new game, or loading the old one
         log.info("LocalConnection logging in with name: " + self.playerName)
 
@@ -40,7 +40,7 @@ class LocalConnection():
 
         # workaround for a weird bug?
         self.process.setwinsize(24, 80)
-        #\x12 is Ctrl+R (redraw)
+        # \x12 is Ctrl+R (redraw)
         return self.send_command('\x12', False)
 
     def disconnect(self):
