@@ -200,13 +200,13 @@ class TerminalBuffer():
 
     def get_text(self, x=0, y=0, w=0, h=0, color=False):
         if w == 0:
-            w = self.width - 1
+            w = self.width
         if h == 0:
-            h = self.height - 1
+            h = self.height
         x = max(0, min(self.width - 1, x))
         y = max(0, min(self.height - 1, y))
-        w = max(0, min(self.width - 1 - x, w))
-        h = max(0, min(self.height - 1 - y, h))
+        w = max(0, min(self.width - x, w))
+        h = max(0, min(self.height - y, h))
 
         return "\n".join("".join(str(self.terminal[i][j]) for j in range(
             x, x + w)) for i in range(y, y + h))
@@ -220,9 +220,8 @@ class TerminalBuffer():
             while self.cursor_pos.x + x < 0:
                 x += self.width
                 y -= 1
-        if self.cursor_pos.y + y >= self.window_bot:
-            self.scroll_up((self.cursor_pos.y + y) -
-                           (self.window_bot - 1))
+        if self.cursor_pos.y + y > self.window_bot:
+            self.scroll_up((self.cursor_pos.y + y) - self.window_bot)
             y = (self.cursor_pos.y + y) - (self.window_bot - 1)
         # technically, shouldn't need the max/min functions here
         # but they aren't very expensive, and being safe is cool
@@ -266,7 +265,7 @@ class TerminalBuffer():
             # we are shifting num lines
             # for any line that's more than num lines from the bottom
             # just copy from the line num lines down
-            if i < self.window_bot - num:
+            if i + num <= self.window_bot:
                 self.terminal[i] = self.terminal[i + num]
             # if the line is within num lines of the bottom, reset the line
             else:
@@ -280,7 +279,7 @@ class TerminalBuffer():
             # we are shifting num lines
             # for any line that's more than num lines from the bottom
             # just copy from the line num lines down
-            if i >= num + self.window_bot:
+            if i - num >= self.window_bot:
                 self.terminal[i] = self.terminal[i - num]
             # if the line is within num lines of the bottom, reset
             else:
