@@ -65,6 +65,13 @@ class Client:
         self.new_game = self.terminal.get_text(0, 0, 0, 1).startswith(
             Client._new_game_text.format(self.user_name))
 
+        self.screen = Screens.MAIN
+
+        #'weird' state stands for uncommon but possible start screens
+        #notably, if playing online and you need to update a save file
+        #or if you load trunk during a tourney
+        self.weird = ((not self.new_game) and (not self._check_main_screen()))
+
     def get_screen(self):
         return self.terminal.get_text()
 
